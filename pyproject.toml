@@ -28,6 +28,7 @@ dev = [
 line-length = 100
 target-version = "py312"
 src = ["app", "tests", "scripts"]
+extend-exclude = ["src/notebook"]
 
 [tool.ruff.lint]
 select = [
