@@ -27,7 +27,7 @@ dev = [
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-src = ["app", "tests", "scripts"]
+src = ["src/app", "tests", "scripts"]
 extend-exclude = ["src/notebook"]
 
 [tool.ruff.lint]
