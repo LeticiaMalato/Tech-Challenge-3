@@ -47,15 +47,19 @@ ignore = [
     "D213",  # incompatível com D212
 ]
 
+[tool.hatch.build.targets.wheel]
+packages = ["src/app"]
+
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["D", "ANN"]  # testes não exigem docstring/annotation completa
+"src/app/core/interfaces.py" = ["ANN401"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["."]
+pythonpath = ["src"]
 
 [tool.uv]
 package = false
