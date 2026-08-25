@@ -45,6 +45,7 @@ select = [
 ignore = [
     "D203",  # incompatível com D211
     "D213",  # incompatível com D212
+    "ANN101",  # self não precisa de type hint — prática padrão em Python
 ]
 
 [tool.hatch.build.targets.wheel]
