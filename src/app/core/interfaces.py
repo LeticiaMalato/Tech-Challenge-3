@@ -63,6 +63,19 @@ class UrgencyClassifier(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def predict_proba(self, features: Any) -> list[list[float]]:
+        """Predicts probabilities for each urgency label.
+
+        Args:
+            features: Feature representation produced by a TextPreprocessor.
+
+        Returns:
+            Predicted probabilities for each urgency label, in the same order
+            as the input features.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     def save(self, path: str) -> None:
         """Persists the trained model to disk.
 

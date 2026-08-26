@@ -41,6 +41,17 @@ class LogisticClassifier(UrgencyClassifier):
         """
         return self.classifier.predict(features).tolist()
 
+    def predict_proba(self, features: Any) -> list[list[float]]:
+        """Predicts probabilities for each urgency label.
+
+        Args:
+        features: Feature representation produced by a TextPreprocessor.
+
+        Returns:
+        Predicted probabilities for each urgency label.
+        """
+        return self.classifier.predict_proba(features).tolist()
+
     def save(self, path: str) -> None:
         """Saves the trained model to disk."""
         joblib.dump(self.classifier, path)
