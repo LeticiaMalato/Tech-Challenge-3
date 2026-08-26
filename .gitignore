@@ -220,3 +220,7 @@ __marimo__/
 # Dataset (baixado via script, não versionado)
 data/*.csv
 data/processed/*.csv
+
+# Model artifacts (trained model and preprocessor)
+model_artifacts/classifier.joblib
+model_artifacts/preprocessor.joblib
