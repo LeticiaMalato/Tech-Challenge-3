@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 import joblib
 from app.api.schemas import PredictRequest, PredictResponse
 from app.models.logistic_classifier import LogisticClassifier
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 
 
 @asynccontextmanager
@@ -32,12 +32,18 @@ async def predict(payload: PredictRequest, request: Request) -> PredictResponse:
     preprocessor = request.app.state.preprocessor
     classifier = request.app.state.classifier
 
-    # Preprocess the input text
-    text_vector = preprocessor.transform([payload.text])
+    try:
+        # Preprocess the input text
+        text_vector = preprocessor.transform([payload.text])
 
-    # Make the prediction
-    urgency = classifier.predict(text_vector)[0]
-    probabilities = classifier.predict_proba(text_vector)[0]
+        # Make the prediction
+        urgency = classifier.predict(text_vector)[0]
+        probabilities = classifier.predict_proba(text_vector)[0]
+    except Exception as error:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to classify the provided text: {error}",
+        ) from error
 
     return PredictResponse(
         urgency=urgency,
