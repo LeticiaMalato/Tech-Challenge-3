@@ -38,5 +38,5 @@ async def predict(payload: PredictRequest, request: Request) -> PredictResponse:
 
     return PredictResponse(
         urgency=urgency,
-        probabilities={classifier.classifier.classes_[i]: p for i, p in enumerate(probabilities)},
+        probabilities={classifier.classes()[i]: p for i, p in enumerate(probabilities)},
     )

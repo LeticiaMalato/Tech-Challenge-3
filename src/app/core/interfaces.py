@@ -92,3 +92,12 @@ class UrgencyClassifier(ABC):
             path: Filesystem path to a model artifact created by save().
         """
         raise NotImplementedError
+
+    @abstractmethod
+    def classes(self) -> list[str]:
+        """Returns the list of possible urgency classes.
+
+        Returns:
+            List of possible urgency classes.
+        """
+        raise NotImplementedError
