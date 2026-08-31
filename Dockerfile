@@ -3,7 +3,7 @@ FROM python:3.12-slim
 WORKDIR /app
 
 COPY pyproject.toml uv.lock ./
-RUN pip install uv && uv sync --frozen
+RUN pip install uv && uv sync --frozen --no-dev
 
 COPY src/app ./app
 COPY model_artifacts ./model_artifacts

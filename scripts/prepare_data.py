@@ -58,6 +58,14 @@ def remove_conflicting_labels(pool: pd.DataFrame) -> pd.DataFrame:
     return pool_clean
 
 
+def drop_unmapped_labels(pool: pd.DataFrame) -> pd.DataFrame:
+    """Drops rows with urgency_label == NaN (i.e., condition_name not in URGENCY_MAP)."""
+    dropped_count = pool["urgency_label"].isnull().sum()
+    if dropped_count > 0:
+        print(f"Warning: dropping {dropped_count} rows with unmapped urgency_label (NaN).")
+    return pool.dropna(subset=["urgency_label"])
+
+
 def split_dataset(
     pool_clean: pd.DataFrame,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -92,6 +100,7 @@ def main() -> None:
     train_mapped = apply_urgency_mapping(train_raw, labels)
     test_mapped = apply_urgency_mapping(test_raw, labels)
     pool = build_pool(train_mapped, test_mapped)
+    pool = drop_unmapped_labels(pool)
     pool_clean = remove_conflicting_labels(pool)
     train, val, test = split_dataset(pool_clean)
     save_processed(train, val, test)

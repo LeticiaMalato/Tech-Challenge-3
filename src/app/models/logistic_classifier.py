@@ -59,3 +59,12 @@ class LogisticClassifier(UrgencyClassifier):
     def load(self, path: str) -> None:
         """Loads a previously trained model from disk."""
         self.classifier = joblib.load(path)
+
+    def classes(self) -> list[str]:
+        """Returns the list of possible urgency classes.
+
+        Returns:
+            The urgency classes known by the classifier, in the same order
+            used by predict_proba.
+        """
+        return self.classifier.classes_.tolist()
