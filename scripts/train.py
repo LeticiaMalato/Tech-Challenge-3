@@ -13,8 +13,8 @@ from app.models.logistic_classifier import LogisticClassifier
 from app.preprocessing.tfidf_preprocessor import TfidfPreprocessor
 from sklearn.metrics import classification_report, f1_score
 
-PROCESSED_DATA_DIR = "data/processed"
-MODEL_ARTIFACTS_DIR = "model_artifacts"
+PROCESSED_DATA_DIR = os.getenv("PROCESSED_DATA_DIR", "data/processed")
+MODEL_ARTIFACTS_DIR = os.getenv("MODEL_ARTIFACTS_DIR", "model_artifacts")
 
 
 def load_split(split_name: str) -> tuple[list[str], list[str]]:
