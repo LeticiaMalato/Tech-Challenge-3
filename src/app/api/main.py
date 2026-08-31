@@ -1,5 +1,6 @@
 """FastAPI application for the urgency triage service."""
 
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -12,10 +13,12 @@ from fastapi import FastAPI, Request
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Loads the trained model artifacts once, when the API starts."""
-    app.state.preprocessor = joblib.load("model_artifacts/preprocessor.joblib")
+    model_artifacts_dir = os.getenv("MODEL_ARTIFACTS_DIR", "model_artifacts")
+
+    app.state.preprocessor = joblib.load(f"{model_artifacts_dir}/preprocessor.joblib")
 
     app.state.classifier = LogisticClassifier()
-    app.state.classifier.load("model_artifacts/classifier.joblib")
+    app.state.classifier.load(f"{model_artifacts_dir}/classifier.joblib")
 
     yield
 
