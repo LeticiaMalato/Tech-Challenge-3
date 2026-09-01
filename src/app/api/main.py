@@ -26,6 +26,23 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(lifespan=lifespan)
 
 
+@app.get("/health")
+async def health() -> dict[str, str]:
+    """Liveness check: confirms the API process is running."""
+    return {"status": "ok"}
+
+
+@app.get("/ready")
+async def ready(request: Request) -> dict[str, str]:
+    """Readiness check: confirms the model artifacts are loaded."""
+    if hasattr(request.app.state, "preprocessor") and hasattr(request.app.state, "classifier"):
+        return {"status": "ready"}
+    raise HTTPException(
+        status_code=503,
+        detail="Model artifacts are not loaded",
+    )
+
+
 @app.post("/predict")
 async def predict(payload: PredictRequest, request: Request) -> PredictResponse:
     """Classifies the urgency of a medical abstract."""
@@ -33,10 +50,7 @@ async def predict(payload: PredictRequest, request: Request) -> PredictResponse:
     classifier = request.app.state.classifier
 
     try:
-        # Preprocess the input text
         text_vector = preprocessor.transform([payload.text])
-
-        # Make the prediction
         urgency = classifier.predict(text_vector)[0]
         probabilities = classifier.predict_proba(text_vector)[0]
     except Exception as error:
