@@ -13,6 +13,10 @@ def test_predict_returns_urgency_for_valid_text():
     body = response.json()
     assert isinstance(body, dict)
     assert "urgency" in body
+    assert body["urgency"] in ["urgent", "attention", "normal"]
+    assert "probabilities" in body
+    assert len(body["probabilities"]) == 3
+    assert all(0 <= v <= 1 for v in body["probabilities"].values())
 
 
 def test_predict_returns_422_for_invalid_payload():
