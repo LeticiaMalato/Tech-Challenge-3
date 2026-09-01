@@ -19,11 +19,13 @@ with DAG(
     prepare_data_task = BashOperator(
         task_id="prepare_data",
         bash_command="python scripts/prepare_data.py",
+        retries=1,
     )
 
     train_model_task = BashOperator(
         task_id="train_model",
         bash_command="python scripts/train.py",
+        retries=1,
     )
 
     prepare_data_task >> train_model_task
