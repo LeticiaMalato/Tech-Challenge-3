@@ -36,8 +36,12 @@ async def track_metrics(
     if request.url.path == "/predict":
         if response.status_code < 400:
             REQUEST_COUNT.labels(status="success").inc()
+        elif response.status_code == 400:
+            REQUEST_COUNT.labels(status="error_400").inc()
+        elif response.status_code == 422:
+            REQUEST_COUNT.labels(status="error_422").inc()
         else:
-            REQUEST_COUNT.labels(status="error").inc()
+            REQUEST_COUNT.labels(status="error_other").inc()
 
     return response
 
