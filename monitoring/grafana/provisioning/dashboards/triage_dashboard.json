@@ -62,7 +62,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "cfwz599enhwxsa"
+                        "name": "prometheus-datasource"
                       },
                       "spec": {
                         "editorMode": "builder",
@@ -176,7 +176,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "cfwz599enhwxsa"
+                        "name": "prometheus-datasource"
                       },
                       "spec": {
                         "editorMode": "code",
@@ -290,7 +290,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "cfwz599enhwxsa"
+                        "name": "prometheus-datasource"
                       },
                       "spec": {
                         "editorMode": "code",
