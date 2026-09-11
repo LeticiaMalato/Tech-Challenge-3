@@ -287,9 +287,3 @@ Tech-Challenge-3/
 - **`TextPreprocessor` sem `save`/`load` na interface** (diferente de `UrgencyClassifier`): persistência do preprocessor é feita via `joblib.dump`/`joblib.load` diretamente no script de treino, evitando inflar o contrato da interface com uma capacidade genérica já resolvida por ferramenta externa — decisão deliberada, não uma inconsistência.
 - **`UrgencyClassifier.classes()`**: adicionado à interface para evitar que a API acessasse `sklearn` diretamente (`classifier.classifier.classes_`), preservando a promessa do Strategy Pattern de que a implementação concreta pode ser trocada sem alterar a API.
 
-## Próximos passos
-
-- **Etapa 4 (não implementada nesta entrega):** conversão dos modelos para ONNX Runtime, com comparação de latência baseline vs. otimizado.
-- Versionamento/promoção de modelo na DAG do Airflow (comparação de F1 antes de sobrescrever o artefato em produção).
-- Ambiente completo do Airflow rodando via Docker Compose.
-- Testes adicionais: `/health`, `/ready`, `/metrics`, `LogisticClassifier` isoladamente.
