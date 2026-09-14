@@ -3,7 +3,7 @@
 Defines the Strategy-pattern interfaces that concrete implementations
 (TF-IDF preprocessing, Logistic Regression classification, etc.) must follow.
 Keeping these as abstractions allows swapping implementations (e.g. TF-IDF
-for embeddings, Logistic Regression for another model) without touching the
+for embeddings, Logistic Regression for ONNX Runtime) without touching the
 API or training script.
 """
 

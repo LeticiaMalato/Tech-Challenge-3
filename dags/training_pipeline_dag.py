@@ -2,7 +2,7 @@
 
 Manually triggered (schedule=None). Runs the same scripts used for local
 development: prepare_data.py (clean + split the dataset) followed by
-train.py (fit the preprocessor and classifier, evaluate, save artifacts).
+train.py (fit the preprocessor and classifier, evaluate, save joblib + ONNX).
 """
 
 from datetime import datetime

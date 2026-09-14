@@ -221,6 +221,7 @@ __marimo__/
 data/*.csv
 data/processed/*.csv
 
-# Model artifacts (trained model and preprocessor)
+# Model artifacts (trained sklearn + ONNX; versioned for Docker/CI)
 # model_artifacts/classifier.joblib
 # model_artifacts/preprocessor.joblib
+# model_artifacts/classifier.onnx

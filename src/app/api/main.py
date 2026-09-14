@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 import joblib
 from app.api.metrics import REQUEST_COUNT, REQUEST_DURATION
 from app.api.schemas import PredictRequest, PredictResponse
-from app.models.logistic_classifier import LogisticClassifier
+from app.models.onnx_classifier import OnnxClassifier
 from fastapi import FastAPI, HTTPException, Request, Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from starlette.responses import Response as StarletteResponse
@@ -18,8 +18,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Loads the trained model artifacts once, when the API starts."""
     model_artifacts_dir = os.getenv("MODEL_ARTIFACTS_DIR", "model_artifacts")
     app.state.preprocessor = joblib.load(f"{model_artifacts_dir}/preprocessor.joblib")
-    app.state.classifier = LogisticClassifier()
-    app.state.classifier.load(f"{model_artifacts_dir}/classifier.joblib")
+    app.state.classifier = OnnxClassifier()
+    app.state.classifier.load(f"{model_artifacts_dir}/classifier.onnx")
     yield
 
 
@@ -75,8 +75,12 @@ async def predict(payload: PredictRequest, request: Request) -> PredictResponse:
 
         try:
             text_vector = preprocessor.transform([payload.text])
-            urgency = classifier.predict(text_vector)[0]
-            probabilities = classifier.predict_proba(text_vector)[0]
+            if hasattr(classifier, "predict_with_proba"):
+                labels, proba_rows = classifier.predict_with_proba(text_vector)
+                urgency, probabilities = labels[0], proba_rows[0]
+            else:
+                urgency = classifier.predict(text_vector)[0]
+                probabilities = classifier.predict_proba(text_vector)[0]
         except Exception as error:
             raise HTTPException(
                 status_code=400,

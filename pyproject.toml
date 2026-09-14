@@ -58,6 +58,7 @@ convention = "google"
 "tests/*" = ["D", "ANN"]  # testes não exigem docstring/annotation completa
 "src/app/core/interfaces.py" = ["ANN401"]
 "src/app/models/logistic_classifier.py" = ["ANN401"]
+"src/app/models/onnx_classifier.py" = ["ANN401"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

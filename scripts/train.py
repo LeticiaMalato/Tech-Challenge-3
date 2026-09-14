@@ -10,6 +10,7 @@ import os
 import joblib
 import pandas as pd
 from app.models.logistic_classifier import LogisticClassifier
+from app.models.onnx_export import export_sklearn_logistic
 from app.preprocessing.tfidf_preprocessor import TfidfPreprocessor
 from sklearn.metrics import classification_report, f1_score
 
@@ -56,7 +57,10 @@ def main() -> None:
     os.makedirs(MODEL_ARTIFACTS_DIR, exist_ok=True)
     classifier.save(f"{MODEL_ARTIFACTS_DIR}/classifier.joblib")
     joblib.dump(preprocessor, f"{MODEL_ARTIFACTS_DIR}/preprocessor.joblib")
-    print(f"Artifacts saved to {MODEL_ARTIFACTS_DIR}/")
+    export_sklearn_logistic(
+        classifier.classifier, f"{MODEL_ARTIFACTS_DIR}/classifier.onnx"
+    )
+    print(f"Artifacts saved to {MODEL_ARTIFACTS_DIR}/ (joblib + ONNX)")
 
 
 if __name__ == "__main__":

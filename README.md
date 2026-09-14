@@ -42,7 +42,7 @@ Um hospital de referência precisa de um sistema de triagem automática de laudo
                             │
                      ┌──────┴──────┐
                      ▼             ▼
-              TfidfPreprocessor  LogisticClassifier
+              TfidfPreprocessor  OnnxClassifier
                      │             │
                      └──────┬──────┘
                             ▼
@@ -50,7 +50,7 @@ Um hospital de referência precisa de um sistema de triagem automática de laudo
 
 GitHub ──► GitHub Actions (lint → test → build)
 
-Airflow DAG: prepare_data.py >> train.py ──► model_artifacts/
+Airflow DAG: prepare_data.py >> train.py ──► model_artifacts/ (joblib + ONNX)
 ```
 
 A API, o Prometheus e o Grafana rodam como serviços de um mesmo `docker-compose.yml`, com sequenciamento de inicialização baseado em healthchecks (`api` saudável → `prometheus` saudável → `grafana` sobe).
@@ -67,7 +67,7 @@ Triagem hospitalar é, por natureza, uma operação **por requisição individua
 |---|---|---|
 | `Dockerfile` da API | **ECS Fargate** | Roda o container sem gerenciar servidores; escala horizontalmente conforme demanda de requisições, sem mudar uma linha do `Dockerfile` já existente. |
 | `docker-compose.yml` (build local) | **ECR** (registro de imagens) | Armazena a imagem construída pelo CI, para o ECS puxar em produção. |
-| `model_artifacts/*.joblib` | **S3** | Armazenamento durável dos artefatos treinados; o `lifespan` da API poderia ser adaptado para baixar do S3 em vez de `COPY` na imagem, desacoplando deploy de código de deploy de modelo. |
+| `model_artifacts/*.joblib` e `classifier.onnx` | **S3** | Armazenamento durável dos artefatos treinados; o `lifespan` da API poderia ser adaptado para baixar do S3 em vez de `COPY` na imagem, desacoplando deploy de código de deploy de modelo. |
 | `dags/training_pipeline_dag.py` | **MWAA** (Managed Workflows for Apache Airflow) | Roda a DAG já escrita sem precisar operar infraestrutura própria de Airflow (scheduler, banco, webserver). |
 | Prometheus + Grafana | **Amazon Managed Service for Prometheus/Grafana** (ou EC2 auto-hospedado, como neste projeto) | Path de menor atrito para manter a mesma stack de observabilidade já validada, com opção gerenciada se o time preferir reduzir operação. |
 | `ci.yml` (GitHub Actions) | Mantido como está | GitHub Actions já se integra nativamente com ECR/ECS via `aws-actions`, sem necessidade de trocar de ferramenta de CI. |
@@ -114,6 +114,8 @@ Esta decisão foi tomada apenas ao final do desenvolvimento, deliberadamente —
 - `TfidfVectorizer(min_df=2, stop_words="english")`
 - `LogisticRegression(class_weight="balanced", random_state=42, max_iter=1000)` — `class_weight="balanced"` justificado pelo desbalanceamento moderado observado na EDA.
 
+**Inferência em produção: ONNX Runtime.** O treino continua em scikit-learn; `scripts/train.py` exporta o `LogisticRegression` para `model_artifacts/classifier.onnx` (`skl2onnx`). A API carrega esse grafo via `OnnxClassifier` (uma sessão, labels + probabilidades juntos). O TF-IDF permanece em sklearn: a matriz esparsa (~16 mil termos) só é densificada na entrada do ONNX. Os `.joblib` ficam para retreino e para o benchmark sklearn vs ONNX.
+
 **Métrica principal: macro F1**, não accuracy — escolhida porque trata as 3 classes com peso igual, relevante tanto pelo desbalanceamento quanto pelo custo assimétrico de erros em triagem médica (confundir `urgent` com `normal` é clinicamente muito mais grave que confundir `attention` com `normal`).
 
 ## Resultados e limitações conhecidas
@@ -149,7 +151,7 @@ FastAPI com 4 endpoints:
 
 **Tratamento de erro:** falhas internas de processamento (`transform`/`predict`) retornam `400` com mensagem clara, em vez de vazar stacktrace como `500`.
 
-**Carregamento de modelo:** artefatos (`preprocessor.joblib`, `classifier.joblib`) são carregados uma única vez, no `lifespan` da aplicação — não a cada requisição. Consequência operacional: atualizar o modelo em produção requer reiniciar o serviço (reconstruir a imagem Docker); não há hot-reload dinâmico, por decisão de escopo.
+**Carregamento de modelo:** artefatos (`preprocessor.joblib`, `classifier.onnx`) são carregados uma única vez, no `lifespan` da aplicação — não a cada requisição. Consequência operacional: atualizar o modelo em produção requer reiniciar o serviço (reconstruir a imagem Docker); não há hot-reload dinâmico, por decisão de escopo.
 
 ## Docker
 
@@ -169,9 +171,9 @@ FastAPI com 4 endpoints:
 
 Gatilhos em `push`/`pull_request` para `main` e `dev` — feedback cedo a cada PR de feature, não só no merge final.
 
-**Decisão de reprodutibilidade:** `model_artifacts/*.joblib` são **versionados no Git** (removidos do `.gitignore`), para que o job `docker-build` no runner do GitHub Actions (ambiente limpo, sem dataset bruto) tenha o que copiar na imagem. Consequência: re-treinos locais exigem commitar os `.joblib` atualizados, ou o CI (e qualquer clone do repositório) usa o modelo desatualizado.
+**Decisão de reprodutibilidade:** `model_artifacts/*.joblib` e `classifier.onnx` são **versionados no Git**, para que o job `docker-build` no runner do GitHub Actions (ambiente limpo, sem dataset bruto) tenha o que copiar na imagem. Consequência: re-treinos locais exigem commitar os artefatos atualizados, ou o CI (e qualquer clone do repositório) usa o modelo desatualizado.
 
-**Testes:** 5 testes automatizados — `TfidfPreprocessor.transform` (formato/tipo), `/predict` (sucesso e `422`, usando fakes de preprocessor/classifier para desacoplar dos artefatos reais), e `remove_conflicting_labels` (cobrindo as 3 categorias de entrada: conflito removido, duplicata consistente deduplicada, texto único mantido).
+**Testes:** 6 testes automatizados — `TfidfPreprocessor.transform` (formato/tipo), `/predict` (sucesso e `422`, usando fakes de preprocessor/classifier para desacoplar dos artefatos reais), `remove_conflicting_labels` (conflito removido, duplicata consistente deduplicada, texto único mantido), e paridade sklearn vs ONNX (rótulos iguais e probabilidades a < 1e-5).
 
 ## Orquestração (Airflow)
 
@@ -187,7 +189,7 @@ prepare_data_task >> train_model_task
 **Limitações de execução, documentadas conscientemente:**
 - A DAG assume que o worker do Airflow tem acesso ao mesmo ambiente Python do projeto (dependências instaladas, execução a partir da raiz do repositório) — não implementado nesta entrega.
 - O ambiente completo do Airflow (scheduler, webserver, banco de dados via Docker Compose) **não foi executado de ponta a ponta** — decisão de escopo, já que o entregável explícito da Etapa 2 é o arquivo `.py` da DAG (estrutura e sintaxe corretas, validadas), não necessariamente a infraestrutura completa rodando.
-- Sem versionamento/promoção de modelo: cada execução sobrescreve `model_artifacts/classifier.joblib` diretamente. Uma versão mais robusta salvaria artefatos com timestamp/run_id e só promoveria o novo modelo se o F1 de validação fosse ≥ ao anterior — registrado como melhoria futura.
+- Sem versionamento/promoção de modelo: cada execução sobrescreve `model_artifacts/classifier.joblib` e `classifier.onnx` diretamente. Uma versão mais robusta salvaria artefatos com timestamp/run_id e só promoveria o novo modelo se o F1 de validação fosse ≥ ao anterior — registrado como melhoria futura.
 
 ## Monitoramento
 
@@ -208,17 +210,29 @@ Datasource Prometheus provisionado com UID fixo (`prometheus-datasource`), evita
 
 ## Latência
 
-Medida via `scripts/measure_latency.py` — 50 requisições reais via HTTP (não apenas o tempo de inferência isolado), com warm-up de 5 requisições descartadas e cliente HTTP reutilizado (keep-alive), para refletir o comportamento realista de produção.
+**Comparação sklearn vs ONNX** (`scripts/compare_latency.py`): inferência in-process, sem HTTP, no mesmo texto de amostra da medição HTTP, 20 warm-ups + 200 corridas. Isola o classificador e também o caminho completo (TF-IDF + classificador), que é o que a API executa.
 
-**Baseline atual (TF-IDF + Logistic Regression, sem otimização ONNX):**
+| Caminho | Mean | Median | P95 |
+|---|---|---|---|
+| sklearn classificador (`predict` + `predict_proba`) | 0,215 ms | 0,206 ms | 0,296 ms |
+| ONNX classificador (uma sessão) | 0,028 ms | 0,025 ms | 0,038 ms |
+| sklearn TF-IDF + classificador | 0,508 ms | 0,507 ms | 0,667 ms |
+| TF-IDF + ONNX (produção) | 0,331 ms | 0,317 ms | 0,455 ms |
 
-| Métrica | Valor |
-|---|---|
-| Mean | 5,13 ms |
-| Median | 3,98 ms |
-| P95 | 6,77 ms |
+- Paridade de rótulos sklearn vs ONNX: **100%** nas 200 inferências.
+- Speedup mediano **só do classificador: 8,12×**. End-to-end: **1,60×** — o TF-IDF em sklearn continua sendo a maior fatia do tempo; o ganho do ONNX aparece inteiro no classificador.
+- Os `.joblib` permanecem para retreino e para este benchmark; a API de produção usa só o ONNX.
 
-*(Nota: uma medição inicial, sem warm-up e sem reaproveitamento de conexão HTTP, registrou valores ~8x maiores — Mean 39,78ms / P95 60,14ms — refletindo majoritariamente overhead de conexão TCP repetida, não o custo real do modelo. A metodologia foi corrigida para refletir o comportamento em produção.)*
+**HTTP `/predict`** (`scripts/measure_latency.py`) — 50 requisições, warm-up de 5, cliente reutilizado (keep-alive):
+
+| | Mean | Median | P95 |
+|---|---|---|---|
+| Baseline Etapa 1 (sklearn, sem ONNX) | 5,13 ms | 3,98 ms | 6,77 ms |
+| Etapa 4 (TF-IDF + ONNX na API) | 1,99 ms | 1,85 ms | 2,72 ms |
+
+A queda HTTP mistura o classificador mais rápido com variação de máquina/carga; o número que isola a otimização da Etapa 4 é a tabela in-process acima.
+
+*(Nota: uma medição inicial da Etapa 1, sem warm-up e sem keep-alive, registrou valores ~8× maiores — Mean 39,78 ms / P95 60,14 ms — overhead de TCP, não do modelo.)*
 
 ## Como executar
 
@@ -235,8 +249,11 @@ uv sync
 # 3. Preparar os dados (gera data/processed/{train,val,test}.csv)
 uv run python scripts/prepare_data.py
 
-# 4. Treinar o modelo (gera model_artifacts/*.joblib)
+# 4. Treinar o modelo (gera model_artifacts/*.joblib e classifier.onnx)
 uv run python scripts/train.py
+
+# 4b. Comparar latência sklearn vs ONNX (não precisa da API no ar)
+uv run python scripts/compare_latency.py
 
 # 5. Rodar a API localmente
 uv run uvicorn app.api.main:app --app-dir src
@@ -263,11 +280,12 @@ Tech-Challenge-3/
 ├── src/app/                 # Pacote de produção (vai para a imagem Docker)
 │   ├── core/interfaces.py       # Contratos abstratos (Strategy pattern)
 │   ├── preprocessing/            # TfidfPreprocessor
-│   ├── models/                   # LogisticClassifier
+│   ├── models/                   # LogisticClassifier (treino) + OnnxClassifier (API)
 │   └── api/                      # FastAPI: main.py, schemas.py, metrics.py
 ├── scripts/                  # Uso único, fora do pacote de produção
 │   ├── prepare_data.py
 │   ├── train.py
+│   ├── compare_latency.py
 │   └── measure_latency.py
 ├── dags/                     # DAG do Airflow
 ├── tests/                    # Testes automatizados (pytest)
@@ -286,4 +304,9 @@ Tech-Challenge-3/
 - **Scripts de uso único fora de `src/app/`**: `prepare_data.py`, `train.py` e a DAG do Airflow nunca são importados pela API — comunicam-se apenas via artefatos em disco (desacoplamento por artefato, não por import direto).
 - **`TextPreprocessor` sem `save`/`load` na interface** (diferente de `UrgencyClassifier`): persistência do preprocessor é feita via `joblib.dump`/`joblib.load` diretamente no script de treino, evitando inflar o contrato da interface com uma capacidade genérica já resolvida por ferramenta externa — decisão deliberada, não uma inconsistência.
 - **`UrgencyClassifier.classes()`**: adicionado à interface para evitar que a API acessasse `sklearn` diretamente (`classifier.classifier.classes_`), preservando a promessa do Strategy Pattern de que a implementação concreta pode ser trocada sem alterar a API.
+- **ONNX só no classificador, não no TF-IDF**: o vetorizador permanece sklearn (esparso). O `OnnxClassifier` densifica float32 só na inferência e devolve label + probabilidade numa única `InferenceSession.run`, no lugar de dois passes sklearn (`predict` + `predict_proba`).
+
+## Próximos passos
+
+- Gravar o vídeo STAR (≤ 5 min) e incluir o link no README / entrega.
 

@@ -1,8 +1,9 @@
-"""Measures baseline latency of the /predict endpoint.
+"""Measures HTTP latency of the /predict endpoint (ONNX inference path).
 
 Requires the API to already be running locally (uvicorn) before executing
 this script. Sends repeated requests and reports mean, median, and p95
-latency, in milliseconds.
+latency, in milliseconds. For sklearn vs ONNX (in-process), use
+scripts/compare_latency.py.
 """
 
 import statistics
