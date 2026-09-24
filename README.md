@@ -306,7 +306,4 @@ Tech-Challenge-3/
 - **`UrgencyClassifier.classes()`**: adicionado à interface para evitar que a API acessasse `sklearn` diretamente (`classifier.classifier.classes_`), preservando a promessa do Strategy Pattern de que a implementação concreta pode ser trocada sem alterar a API.
 - **ONNX só no classificador, não no TF-IDF**: o vetorizador permanece sklearn (esparso). O `OnnxClassifier` densifica float32 só na inferência e devolve label + probabilidade numa única `InferenceSession.run`, no lugar de dois passes sklearn (`predict` + `predict_proba`).
 
-## Próximos passos
-
-- Gravar o vídeo STAR (≤ 5 min) e incluir o link no README / entrega.
 
